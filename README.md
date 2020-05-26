@@ -111,3 +111,37 @@ How to add a name to the image
 <img src="screenshots/create-custom-image-10.png" width=700>
 
 <img src="screenshots/create-custom-image-11.png" width=700>
+
+# Create A Docker Image for a Simple Node App
+
+```Dockerfile
+# Specify a base image
+FROM node:alpine
+
+# Define which folder in the base image that we will install dependencies
+WORKDIR /usr/app
+
+# install some dependencies
+COPY ./package.json ./
+RUN npm install
+
+# Copy the rest of the code to the current working directory
+COPY ./ ./
+
+# defaul command
+CMD ["npm", "start"]
+```
+
+- We have to use `node:alpine` as the base image because the `alpine` base image we use before doesn't include `npm`, so we have to get an image with node preinstalled (we could also add more code to install node to the base alpine). `:alpine` simply means we only get the bare minium file needed for this node image, not the full node image
+
+- `WORKDIR /usr/app`: We want to have a working directory as a sub-directory of the base image, in case our files have the same name with what the base image file system already has
+
+- `COPY ./package.json ./`: copy the file package.json from the current `build .` folder, to the working directory of the docker image, in this case it is what we define in `WORKDIR /usr/app`
+
+- `RUN npm install`: install all dependencies in the file package.json
+
+- `docker build -t ngantxnguyen/simpleweb .`: in terminal of the build directory (it'd be `2-simple-web` in this case)
+
+- `docker run -p 5000:8080 ngantxnguyen/simpleweb`: to map requests from localhost port 5000 to this container on port 8080 (without mapping, we won't be able to access the node app within the container)
+
+- `docker run -it ngantxnguyen/simpleweb sh`: to access the container file system in terminal
