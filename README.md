@@ -123,7 +123,7 @@ How to add a name to the image
 
 <img src="screenshots/create-custom-image-10.png" width=700>
 
-<img src="screenshots/create-custom-image-11.png" width=700>
+<img src="screenshots/create-custom-image-11.png" width=400>
 
 # Create A Docker Image for a Simple Node App
 
@@ -208,3 +208,122 @@ To run/build all of those containers using `docker-compose`
 <img src="screenshots/docker-compose-3.png" width=550>
 
 <img src="screenshots/docker-compose-4.png" width=300>
+
+# Production-Grade Workflow
+
+<img src="screenshots/workflow-1.png" width=200>
+<img src="screenshots/workflow-2.png" width=700>
+<img src="screenshots/workflow-3.png" width=400>
+
+## Workflow example with a React App
+
+<img src="screenshots/workflow-4.png" width=550>
+<img src="screenshots/workflow-5.png" width=400>
+
+- ### Development
+
+  <img src="screenshots/workflow-dev-0.png" width=550>
+
+  - Have a docker file made specifically for development called `Dockerfile.dev`
+
+    ```Dockerfile
+    FROM node:alpine
+
+    WORKDIR '/app'
+
+    COPY package.json .
+    RUN npm install
+
+    COPY . .
+
+    CMD [ "npm", "run", "start" ]
+    ```
+
+  - To build and run this dev container in terminal (root directory 4-frontend)
+
+    ```
+    docker build -f Dockerfile.dev .
+
+    docker run -it -p 3000:3000 -v /app/node_modules -v $(pwd):/app CONTAINER_ID
+    ```
+
+  - For the docker container to reflect the updates when we make changes to the main content of the react app (`App.js`) without us manually rebuild the container, we use `Docker Volume`.
+
+    <img src="screenshots/workflow-dev-1.png" width=550>
+    <img src="screenshots/workflow-dev-2.png" width=850>
+
+  - In order not having to type the 2 above command everytime we want to start up this dev container, we create a docker-compose.yml to combine the 2 steps and run `docker-compose up` command instead
+
+    ```yml
+    version: '3'
+    services:
+      web:
+        stdin_open: true
+        build:
+          context: .
+          dockerfile: Dockerfile.dev
+        ports:
+          - '3000:3000'
+        volumes:
+          - /app/node_modules
+          - .:/app
+    ```
+
+- ### Testing
+
+  There are 2 possible ways to do testing container with docker. In both methods, we want to make sure the test container will rerun when we make changes to any tests
+
+  - **Method 1**
+
+    Step 1: Start up the dev server `docker-compose up`
+
+    Step 2: Open another terminal tab, in the same directory, get the above running container ID by `docker ps`. Then run this command with that ID `docker run CONTAINER_ID npm run test`. By overriding the container, we get access to the same setting that updates the output if there're changes in the source code. So when we make changes to the file `App.test.js`, the test container will rerun the test.
+
+    This method allows us to use the stdin to interact with the test suite if it provides any sub-commands.
+
+  - **Method 2**
+
+    Add a test service to the docker-compose.yml, in addition to the web service
+
+    ```yml
+    tests:
+      build:
+        context: .
+        dockerfile: Dockerfile.dev
+      volumes:
+        - /app/node_modules
+        - .:/app
+      command: ['npm', 'run', 'test']
+    ```
+
+    In terminal, `docker-compose up` will run both containers. However, we will not be able to send any input/command to the test suite in terminal
+
+    Reason: Run `docker exec -it CONTAINER_ID npm run test` => `ps` to show the processes of this container. We'll see that there are multiple processes that's running this container. It starts with the main `npm` process, which the stdin is attached to the terminal. The actual test is running in another process executing file start.js. This is the process that we need to attach the stdin from the terminal for it to receive sub-command of the tests. However, there's no way we can switch the stdin to the sub-process.
+
+    <img src="screenshots/workflow-test.png" width=550>
+
+- ### Production
+
+  <img src="screenshots/workflow-prod-1.png" width=550>
+  <img src="screenshots/workflow-prod-2.png" width=510>
+  <img src="screenshots/workflow-prod-3.png" width=650>
+
+  We create another `Dockerfile` for a production container
+
+  ```Dockerfile
+  FROM node:alpine as builder
+  WORKDIR '/app'
+  COPY package.json .
+  RUN npm install
+  COPY . .
+  RUN npm run build
+
+  FROM nginx
+  COPY --from=builder /app/build usr/share/nginx/html
+  ```
+
+  Each `FROM` is a phase. `FROM node:alpine as builder`: we name this phase `builder` so we can refer to it at a later phase
+
+  For the nginx server to work, we only need the build folder from the previous phase. When we don't specify a `CMD` for the image, it'll use the default CMD that nginx image has
+
+  In terminal, run `docker build .`, copy the container ID. To start the prod server, run `docker run -p 8080:80 CONTAINER_ID`. Port `80` is default for `nginx`
