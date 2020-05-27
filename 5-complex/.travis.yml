@@ -1,0 +1,35 @@
+sudo: required
+services:
+  - docker
+
+before_install:
+  - docker build -t ngantxnguyen/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+  - docker run -e CI=true ngantxnguyen/react-test npm test
+
+after_success:
+  - docker build -t ngantxnguyen/multi-client ./client
+  - docker build -t ngantxnguyen/multi-nginx ./nginx
+  - docker build -t ngantxnguyen/multi-server ./server
+  - docker build -t ngantxnguyen/multi-worker ./worker
+  # log in to the docker CLI
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  # Take those images and push them to docker hub
+  - docker push ngantxnguyen/multi-client
+  - docker push ngantxnguyen/multi-nginx
+  - docker push ngantxnguyen/multi-server
+  - docker push ngantxnguyen/multi-worker
+
+deploy:
+  edge: true
+  provider: elasticbeanstalk
+  region: 'us-east-2'
+  app: 'multi-docker'
+  env: 'MultiDocker-env'
+  bucket_name: 'elasticbeanstalk-us-east-2-581442385236'
+  bucket_path: 'docker-multi'
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
