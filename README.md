@@ -327,3 +327,45 @@ To run/build all of those containers using `docker-compose`
   For the nginx server to work, we only need the build folder from the previous phase. When we don't specify a `CMD` for the image, it'll use the default CMD that nginx image has
 
   In terminal, run `docker build .`, copy the container ID. To start the prod server, run `docker run -p 8080:80 CONTAINER_ID`. Port `80` is default for `nginx`
+
+# Continuous Integration and Deployment with Travis CI and AWS Elastic Beanstalk
+
+<img src="screenshots/deployment-travis-ci-aws-elasticbeanstalk-1.png" width=550>
+<img src="screenshots/deployment-travis-ci-aws-elasticbeanstalk-2.png" width=350>
+<img src="screenshots/deployment-travis-ci-aws-elasticbeanstalk-3.png" width=550>
+<img src="screenshots/deployment-travis-ci-aws-elasticbeanstalk-4.png" width=550>
+
+- Create an account with `travis-ci.org` by signing in with Github. It'll link all github repo to Travis.
+- Travis => setting (under Account) => search for the docker-react github project => Turn on the switch for Travis to watch for changes in that repo
+- In our local repository docker-react (4-frontend), create a `.travis.yml` config file for Travis that follows the above flow
+
+  ```yml
+  sudo: required
+  language: generic
+  services:
+    - docker
+
+  before_install:
+    - docker build -t ngantxnguyen/docker-react -f Dockerfile.dev .
+
+  script:
+    - docker run -e CI=true ngantxnguyen/docker-react npm run test
+
+  deploy:
+    provider: elasticbeanstalk
+    region: 'us-east-2'
+    app: 'docker-react'
+    env: 'DockerReact-env'
+    bucket_name: 'elasticbeanstalk-us-east-2-581442385236'
+    bucket_path: 'docker-react'
+    on:
+      branch: master
+    access_key_id: $AWS_ACCESS_KEY
+    secret_access_key: $AWS_SECRET_KEY
+  ```
+
+- We get the AWS access key and secret key by create a new IAM user (with full access to Elastic Beanstalk policy). After the user creation, AWS will display these 2 keys
+
+- We have to create a new Application in AWS Elastic Beanstalk, give it a name (that'll be the app name), choose docker. This process will automatically create a S3 bucket (where it'll store all the built version of the github repo).
+
+- In prod `Dockerfile`, we need to add `EXPOSE 80` so that once it is deployed to Elastic Beanstalk, we can access port 80 of the container. Make changes to the `.` as in `COPY package*.json ./` because AWS has problem processing the dot. Lastly, we need to remove named stages, refer to the stages/phases as number `COPY --from=0`.
