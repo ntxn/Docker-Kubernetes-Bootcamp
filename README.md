@@ -402,7 +402,7 @@ During Development, we created 2 containers to run redis and postgres. However, 
 
 <img src="screenshots/multi-container-7.png" width=650>
 
-<img src="screenshots/multi-container-8.png" width=550>
+<img src="screenshots/multi-container-8.png" width=300>
 
 <img src="screenshots/multi-container-9.png" width=550>
 
@@ -527,3 +527,171 @@ During Development, we created 2 containers to run redis and postgres. However, 
   - Scroll to Environment Variables
   - Add AWS_ACCESS_KEY and set to your AWS access key
   - Add AWS_SECRET_KEY and set to your AWS secret key
+
+# KUBERNETES
+
+## Just docker containers and AWS Elastic Beanstalk
+
+When traffic goes to the website increases, EB (Load balancer) will duplicate the whole system instead of just the part that really needs to be scale
+
+<img src="screenshots/docker-and-aws-EB.png" width=650>
+
+## Ideal Scaling with load balancer
+
+Since the part that does the heavy work is the worker container, we only want to increases the number of workers
+
+<img src="screenshots/ideal-load-balance.png" width=350>
+
+## Kubernetes Cluster
+
+This is a Kubernetes Cluster, which will scale the needed part of the system
+
+<img src="screenshots/kubernetes-1.png" width=600>
+
+A cluster in kubernetes is a master of one or more nodes. A node is a Virtual Machine that runs some number of containers, these containers can be instantiated from different images. Those nodes are controled by a master, which has a set of different programs run on it to control which of the nodes running at a given time.
+
+Outside of the cluster, the load balancer will relay requests to different nodes
+
+## Kubernetes What & Why
+
+<img src="screenshots/kubernetes-2.png" width=500>
+
+## Getting started to work with Kubernetes during development
+
+Either in development or production, we always use `kubectl` to manage containers within a node
+
+- ### Method 1: Docker Desktop's Kubernetes
+
+  - 1. Click the Docker icon in the top macOS toolbar
+  - 2. Click Preferences
+  - 3. Click "Kubernetes" in the dialog box menu
+  - 4. Check the “Enable Kubernetes” box
+  - 5. Click "Apply"
+  - 6. Click Install to allow the cluster installation (This may take a while).
+
+  When we deploy the app, we can access by `localhost:nodePort`
+
+- ### Method 2: minikube
+
+  `minikube` is used during development to create small Kubernetes cluster like the diagram we saw above
+
+  <img src="screenshots/kubernetes-3.png" width=500>
+
+  <img src="screenshots/kubernetes-4.png" width=500>
+
+  <img src="screenshots/kubernetes-5.png" width=400>
+
+  <img src="screenshots/kubernetes-6.png" width=700>
+
+  We need to run `minikube ip` to know where minikube hosts the deployed app. It won't be at localhost like Docker Desktop's Kubernetes
+
+## Docker Compose vs Kubernetes
+
+<img src="screenshots/kubernetes-7.png" width=700>
+
+<img src="screenshots/kubernetes-8.png" width=700>
+
+## Kubernetes Config files
+
+<img src="screenshots/kubernetes-9.png" width=700>
+
+<img src="screenshots/kubernetes-9b.png" width=700>
+
+<img src="screenshots/kubernetes-10.png" width=700>
+
+The programs in `Master` looks at Config files for each object to fullfil its responsibilities
+
+<img src="screenshots/kubernetes-18.png" width=1000>
+
+## Object Types
+
+**A node runs some number of Objects**
+
+- ### Pods
+
+  In Kubernetes world, we cannot put containers directly in a node by itself. We have to put a container inside a Pod. A pod, a Kubernetes object, is a grouping of containers with a common purpose. The containers in a Pod has a close coupled relationship
+
+  <img src="screenshots/kubernetes-11.png" width=300>
+
+  <img src="screenshots/kubernetes-12.png" width=500>
+
+  `client-pod.yaml` - A pod configuration file
+
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: client-pod
+    labels:
+      component: web
+  spec:
+    containers:
+      - name: client
+        image: stephengrider/multi-client
+        ports:
+          - containerPort: 3000
+  ```
+
+- ### Services
+
+  - #### NodePort
+
+    `client-node-port.yaml` - Config file for NodePort
+
+    ```yaml
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: client-node-port
+    spec:
+      type: NodePort
+      ports:
+        - port: 3050
+          targetPort: 3000
+          nodePort: 31515
+      selector:
+        component: web
+    ```
+
+    How Nodeport connect to a Pod
+
+    <img src="screenshots/kubernetes-13.png" width=600>
+
+    <img src="screenshots/kubernetes-14.png" width=700>
+
+    <img src="screenshots/kubernetes-15.png" width=600>
+
+## `Kubectl` CLI
+
+<img src="screenshots/kubernetes-16.png" width=600>
+
+First, make sure kubernetes is running, otherwise we can't use kubectl commands.
+
+We need to run this apply command for each `yaml` config file
+
+_6-simplek8s_ Project
+
+```
+kubectl apply -f client-node-port.yaml
+kubectl apply -f client-pod.yaml
+```
+
+In the browser, visit `localhost:31515`, we'll see the React app renders
+
+<img src="screenshots/kubernetes-17.png" width=600>
+
+```
+kubectl get pods
+kubectl get services
+```
+
+## Important takeaways
+
+<img src="screenshots/kubernetes-19.png" width=800>
+
+## Imperative Deployment vs **Declarative Deployment**
+
+<img src="screenshots/kubernetes-20.png" width=500>
+<img src="screenshots/kubernetes-21.png" width=800>
+<img src="screenshots/kubernetes-22.png" width=500>
+<img src="screenshots/kubernetes-23.png" width=900>
