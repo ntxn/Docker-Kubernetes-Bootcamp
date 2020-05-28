@@ -587,15 +587,13 @@ Either in development or production, we always use `kubectl` to manage container
 
 ## Docker Compose vs Kubernetes
 
-<img src="screenshots/kubernetes-7.png" width=700>
-
-<img src="screenshots/kubernetes-8.png" width=700>
+<img src="screenshots/kubernetes-7.png" width=1000>
 
 ## Kubernetes Config files
 
 <img src="screenshots/kubernetes-9.png" width=700>
 
-<img src="screenshots/kubernetes-9b.png" width=700>
+<img src="screenshots/kubernetes-9b.png" width=500>
 
 <img src="screenshots/kubernetes-10.png" width=700>
 
@@ -661,29 +659,73 @@ The programs in `Master` looks at Config files for each object to fullfil its re
 
     <img src="screenshots/kubernetes-15.png" width=600>
 
+- ### Deployement
+
+  <img src="screenshots/kubernetes-30.png" width=500>
+
+  <img src="screenshots/kubernetes-31.png" width=500>
+
+  <img src="screenshots/kubernetes-32.png" width=500>
+
+  <img src="screenshots/kubernetes-33.png" width=500>
+
+  A deployment config file with template is a pod similar to what we define above
+
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: client-deployment
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        component: web
+    template:
+      metadata:
+        labels:
+          component: web
+      spec:
+        containers:
+          - name: client
+            image: stephengrider/multi-client
+            ports:
+              - containerPort: 3000
+  ```
+
 ## `Kubectl` CLI
 
-<img src="screenshots/kubernetes-16.png" width=600>
+<img src="screenshots/kubernetes-16.png" width=500>
 
 First, make sure kubernetes is running, otherwise we can't use kubectl commands.
 
 We need to run this apply command for each `yaml` config file
 
-_6-simplek8s_ Project
+**6-simplek8s** Project
 
 ```
 kubectl apply -f client-node-port.yaml
 kubectl apply -f client-pod.yaml
 ```
 
-In the browser, visit `localhost:31515`, we'll see the React app renders
+In the browser, visit `localhost:31515`, we'll see the React app renders. (If use minikube, replace localhost with minikube ip address)
 
-<img src="screenshots/kubernetes-17.png" width=600>
+<img src="screenshots/kubernetes-17.png" width=450>
 
 ```
 kubectl get pods
 kubectl get services
 ```
+
+<img src="screenshots/kubernetes-25.png" width=500>
+
+<img src="screenshots/kubernetes-26.png" width=550>
+
+<img src="screenshots/kubernetes-29.png" width=500>
+
+<img src="screenshots/kubernetes-37.png" width=1000>
+
+> kubectl set image deployment/client-deployment client=stephengrider/multi-client:v5
 
 ## Important takeaways
 
@@ -695,3 +737,32 @@ kubectl get services
 <img src="screenshots/kubernetes-21.png" width=800>
 <img src="screenshots/kubernetes-22.png" width=500>
 <img src="screenshots/kubernetes-23.png" width=900>
+
+## Update an Object Config
+
+<img src="screenshots/kubernetes-27.png" width=600>
+
+- Limitation in updating a Pod
+
+  <img src="screenshots/kubernetes-28.png" width=400>
+
+- For Deployment, we can update anything we need
+
+## Update the Node with a new version of the container's image
+
+  <img src="screenshots/kubernetes-35.png" width=800>
+
+  <img src="screenshots/kubernetes-36.png" width=500>
+
+`kubectl set image deployment/client-deployment client=stephengrider/multi-client:v5`
+
+## Accessing the Node's containers
+
+By default, Docker CLI on Mac connects to the Docker Server on Mac. Docker CLI doesn't connect to any container inside a Kubernetes cluster (Containers inside a Node). To make Docker CLI on Mac connect to, we run `eval $(minikube docker-env)`. It will temporary connect in that terminal.
+
+An alternative to access to containers in a Kubernetes cluster is to access to minikube shell `minikube ssh`. Then we can use Docker CLI as normal.
+
+  <img src="screenshots/kubernetes-38.png" width=800>
+  <img src="screenshots/kubernetes-39.png" width=400>
+
+  <img src="screenshots/kubernetes-40.png" width=550>
