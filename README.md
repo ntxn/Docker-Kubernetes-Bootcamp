@@ -1,4 +1,38 @@
-# What is Docker?
+# Table of Content
+
+- [**Docker**](#docker)
+  - [What is Docker](#what-is-docker)
+  - [Why use Docker?](#why-use-docker)
+  - [What happens when you run `docker run hello-world`?](#what-happens-when-you-run-docker-run-hello-world)
+  - [What is a container?](#what-is-a-container)
+  - [Docker Client Commands](#docker-client-commands)
+  - [Create Custom Image](#create-custom-image)
+  - [Create and run A custom Docker Image for a Simple Node App](#create-and-run-a-custom-docker-image-for-a-simple-node-app)
+  - [Use Docker Compose for automatic network setup between multiple containers](#use-docker-compose-for-automatic-network-setup-between-multiple-containers)
+  - [Production-Grade Workflow](#production-grade-workflow)
+  - [Single Container Deployment: Continuous Integration and Deployment with Travis CI and AWS Elastic Beanstalk](#single-container-deployment-continuous-integration-and-deployment-with-travis-ci-and-aws-elastic-beanstalk)
+  - [Multi-Containers Deployment to AWS EB with additional AWS DB Services](#multi-containers-deployment-to-aws-eb-with-additional-aws-db-services)
+- [**Kubernetes**](#kubernetes)
+  - [Just docker containers and AWS Elastic Beanstalk](#just-docker-containers-and-aws-elastic-beanstalk)
+  - [Ideal Scaling with load balancer](#ideal-scaling-with-load-balancer)
+  - [Kubernetes Cluster](#kubernetes-cluster)
+  - [Kubernetes What & Why](#kubernetes-what--why)
+  - [Getting started to work with Kubernetes during development](#getting-started-to-work-with-kubernetes-during-development)
+  - [Docker Compose vs Kubernetes](#docker-compose-vs-kubernetes)
+  - [Kubernetes Config files](#kubernetes-config-files)
+  - [Object Types](#object-types)
+  - [Kubectl CLI](#kubectl-cli)
+  - [Important takeaways](#important-takeaways)
+  - [Imperative Deployment vs Declarative Deployment](#imperative-deployment-vs-declarative-deployment)
+  - [Update an Object Config](#update-an-object-config)
+  - [Update the Node with a new version of the container's image](#update-the-node-with-a-new-version-of-the-containers-image)
+  - [Accessing the Node's containers](#accessing-the-nodes-containers)
+  - [Project 7-complex (Use Ingress, ClusterIP, Persistent Volume, Deployment and Deploy to Google Cloud)](#project-7-complex-use-ingress-clusterip-persistent-volume-deployment-and-deploy-to-google-cloud)
+  - [](#)
+
+# DOCKER
+
+## What is Docker?
 
 <img src="screenshots/what-is-docker.png" width=600>
 
@@ -12,11 +46,11 @@ When we install Docker, Docker creates a Linux virtual machine. Everything relat
 
 <img src="screenshots/what-is-docker-3.png" width=600>
 
-# Why use Docker?
+## Why use Docker?
 
 <img src="screenshots/why-use-docker.png" width=600>
 
-# What happens when you run `docker run hello-world`?
+## What happens when you run `docker run hello-world`?
 
 When we run command `docker run hello-world` in terminal, we interact with `Docker Client`. We tell Docker Cli what we want to do, Docker Cli forward it to `Docker Server` to process.
 
@@ -26,7 +60,7 @@ Docker Server uses the image to create a container, and start the container with
 
 <img src="screenshots/hello-world.png" width=700>
 
-# What is a container?
+## What is a container?
 
 <img src="screenshots/container-1.png" width=700>
 
@@ -40,7 +74,7 @@ Docker Server uses the image to create a container, and start the container with
 
 <img src="screenshots/container-6.png" width=900>
 
-# Commands in Docker Client
+## Docker Client Commands
 
 Command `run` is a combination of two commands `create` and `start`. It creates a container based on the image, and runs the container with the default command or the override command (if provided). Whatever command we enter, the image has to support it (has code to run it)
 
@@ -76,18 +110,18 @@ Example of running a redis container
 
 <img src="screenshots/docker-cmd-example-3.png" width=800>
 
-## New way Docker CLI commands
+- ### New Docker CLI commands
 
-- `docker container --help`: get the list of subcommands that works with command `container`
-- `docker container ls`: list out running docker containers (~ `docker ps`)
-- `docker container ls -a`: list out running docker containers (~ `docker ps --all`)
-- `docker container run --publish 80:80 --detach --name webhost nginx`: (~ `docker run -p 80:80 -d --name webhost nginx`) run nginx container downloaded from Docker Hub. `--name webhost` is to set the name of this container to webhost instead of using the randomly generated name by docker
-- `docker container logs webhost`: (~ `docker logs webhost`)
-- `docker container top webhost`: display running processes of a container
-- `docker container rm CONTAINER_ID CONTAINER_ID CONTAINER_ID`: (~ `docker system prune`) to remove containers
-- `docker container rm -f CONTAINER_ID`: to force remove a running container
+  - `docker container --help`: get the list of subcommands that works with command `container`
+  - `docker container ls`: list out running docker containers (~ `docker ps`)
+  - `docker container ls -a`: list out running docker containers (~ `docker ps --all`)
+  - `docker container run --publish 80:80 --detach --name webhost nginx`: (~ `docker run -p 80:80 -d --name webhost nginx`) run nginx container downloaded from Docker Hub. `--name webhost` is to set the name of this container to webhost instead of using the randomly generated name by docker
+  - `docker container logs webhost`: (~ `docker logs webhost`)
+  - `docker container top webhost`: display running processes of a container
+  - `docker container rm CONTAINER_ID CONTAINER_ID CONTAINER_ID`: (~ `docker system prune`) to remove containers
+  - `docker container rm -f CONTAINER_ID`: to force remove a running container
 
-# Create Custom Image
+## Create Custom Image
 
 <img src="screenshots/create-custom-image-1.png" width=600>
 
@@ -125,35 +159,37 @@ How to add a name to the image
 
 <img src="screenshots/create-custom-image-11.png" width=400>
 
-# Create A Docker Image for a Simple Node App
+## Create and run A custom Docker Image for a Simple Node App
 
-```Dockerfile
-# Specify a base image
-FROM node:alpine
+- Write a Dockerfile
 
-# Define which folder in the base image that we will install dependencies
-WORKDIR /usr/app
+  ```Dockerfile
+  # Specify a base image
+  FROM node:alpine
 
-# install some dependencies
-COPY ./package.json ./
-RUN npm install
+  # Define which folder in the base image that we will install dependencies
+  WORKDIR /usr/app
 
-# Copy the rest of the code to the current working directory
-COPY ./ ./
+  # install some dependencies
+  COPY ./package.json ./
+  RUN npm install
 
-# defaul command
-CMD ["npm", "start"]
-```
+  # Copy the rest of the code to the current working directory
+  COPY ./ ./
 
-- We have to use `node:alpine` as the base image because the `alpine` base image we use before doesn't include `npm`, so we have to get an image with node preinstalled (we could also add more code to install node to the base alpine). `:alpine` simply means we only get the bare minium file needed for this node image, not the full node image
+  # defaul command
+  CMD ["npm", "start"]
+  ```
 
-- `WORKDIR /usr/app`: We want to have a working directory as a sub-directory of the base image, in case our files have the same name with what the base image file system already has
+  - We have to use `node:alpine` as the base image because the `alpine` base image we use before doesn't include `npm`, so we have to get an image with node preinstalled (we could also add more code to install node to the base alpine). `:alpine` simply means we only get the bare minium file needed for this node image, not the full node image
 
-- `COPY ./package.json ./`: copy the file package.json from the current `build .` folder, to the working directory of the docker image, in this case it is what we define in `WORKDIR /usr/app`
+  - `WORKDIR /usr/app`: We want to have a working directory as a sub-directory of the base image, in case our files have the same name with what the base image file system already has
 
-- `RUN npm install`: install all dependencies in the file package.json
+  - `COPY ./package.json ./`: copy the file package.json from the current `build .` folder, to the working directory of the docker image, in this case it is what we define in `WORKDIR /usr/app`
 
-- We split into 2 copy commands so that when there's no changes to the package.json file, there's no need to run `npm install` again. For a big project, that would take too long
+  - `RUN npm install`: install all dependencies in the file package.json
+
+  - We split into 2 copy commands so that when there's no changes to the package.json file, there's no need to run `npm install` again. For a big project, that would take too long
 
 - `docker build -t ngantxnguyen/simpleweb .`: in terminal of the build directory (it'd be `2-simple-web` in this case)
 
@@ -161,7 +197,7 @@ CMD ["npm", "start"]
 
 - `docker run -it ngantxnguyen/simpleweb sh`: to access the container file system in terminal
 
-# Use Docker Compose to automatically do networking between multiple containers
+## Use Docker Compose for automatic network setup between multiple containers
 
 **Project: 3-visits**
 
@@ -209,13 +245,13 @@ To run/build all of those containers using `docker-compose`
 
 <img src="screenshots/docker-compose-4.png" width=300>
 
-# Production-Grade Workflow
+## Production-Grade Workflow
 
 <img src="screenshots/workflow-1.png" width=200>
 <img src="screenshots/workflow-2.png" width=700>
 <img src="screenshots/workflow-3.png" width=400>
 
-## Workflow example with a React App
+### Workflow example with a React App
 
 <img src="screenshots/workflow-4.png" width=550>
 <img src="screenshots/workflow-5.png" width=400>
@@ -328,7 +364,7 @@ To run/build all of those containers using `docker-compose`
 
   In terminal, run `docker build .`, copy the container ID. To start the prod server, run `docker run -p 8080:80 CONTAINER_ID`. Port `80` is default for `nginx`
 
-# Single Container Deployment: Continuous Integration and Deployment with Travis CI and AWS Elastic Beanstalk
+## Single Container Deployment: Continuous Integration and Deployment with Travis CI and AWS Elastic Beanstalk
 
 <img src="screenshots/deployment-travis-ci-aws-elasticbeanstalk-1.png" width=550>
 <img src="screenshots/deployment-travis-ci-aws-elasticbeanstalk-2.png" width=350>
@@ -376,7 +412,7 @@ To run/build all of those containers using `docker-compose`
 
   <img src="screenshots/single-container-deployment-issues.png" width=450>
 
-# Multi-Containers Deployment to AWS EB with additional AWS DB Services
+## Multi-Containers Deployment to AWS EB with additional AWS DB Services
 
 **Project: 5-complex**
 
@@ -408,7 +444,7 @@ During Development, we created 2 containers to run redis and postgres. However, 
 
 <img src="screenshots/multi-container-10.png" width=550>
 
-## AWS Configuration Cheat Sheet for ES, EC, RDS
+### AWS Configuration Cheat Sheet for ES, EC, RDS
 
 - ### RDS Database Creation
 
@@ -659,7 +695,7 @@ The programs in `Master` looks at Config files for each object to fullfil its re
 
     <img src="screenshots/kubernetes-15.png" width=600>
 
-- ### Deployement
+- ### Deployment
 
   <img src="screenshots/kubernetes-30.png" width=500>
 
@@ -931,7 +967,7 @@ An alternative to access to containers in a Kubernetes cluster is to access to m
   - Make sure to already set database password as a Secret Obj
   - Create Objects based on the config files in folder k8s `kubectl apply -f k8s`
 
-* ### Travis Build and Google Cloud Deploy
+- ### Travis Build and Google Cloud Deploy
 
   <img src="screenshots/kubernetes-7-complex-6.png" width=550>
   <img src="screenshots/kubernetes-7-complex-7.png" width=650>
