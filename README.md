@@ -583,7 +583,7 @@ Either in development or production, we always use `kubectl` to manage container
 
   <img src="screenshots/kubernetes-6.png" width=700>
 
-  We need to run `minikube ip` to know where minikube hosts the deployed app. It won't be at localhost like Docker Desktop's Kubernetes
+  We need to run `minikube ip` to know the IP address of the virtual machine where minikube created. It won't be at localhost like Docker Desktop's Kubernetes
 
 ## Docker Compose vs Kubernetes
 
@@ -593,8 +593,6 @@ Either in development or production, we always use `kubectl` to manage container
 
 <img src="screenshots/kubernetes-9.png" width=700>
 
-<img src="screenshots/kubernetes-9b.png" width=500>
-
 <img src="screenshots/kubernetes-10.png" width=700>
 
 The programs in `Master` looks at Config files for each object to fullfil its responsibilities
@@ -602,6 +600,8 @@ The programs in `Master` looks at Config files for each object to fullfil its re
 <img src="screenshots/kubernetes-18.png" width=1000>
 
 ## Object Types
+
+<img src="screenshots/kubernetes-8.png" width=500>
 
 **A node runs some number of Objects**
 
@@ -693,6 +693,121 @@ The programs in `Master` looks at Config files for each object to fullfil its re
               - containerPort: 3000
   ```
 
+- ### Kubernetes Volume
+
+  <img src="screenshots/kubernetes-volume-1.png" width=600>
+  <img src="screenshots/kubernetes-volume-0.png" width=650>
+  <img src="screenshots/kubernetes-volume-2.png" width=800>
+  <img src="screenshots/kubernetes-volume-3.png" width=1000>
+
+  We have to declare a config for a persistent volume claim to make/use a persistent volume
+
+  This is `database-persistent-volume-claim.yaml`
+
+  ```yaml
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: database-persistent-volume-claim
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 2Gi
+  ```
+
+  <img src="screenshots/kubernetes-volume-4.png" width=400>
+
+  To use the persistent volume: (part of `postgres-deployment.yaml` under pod `template`)
+
+  ```yaml
+  spec:
+    volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: database-persistent-volume-claim
+  ```
+
+  <img src="screenshots/kubernetes-volume-5.png" width=650>
+  <img src="screenshots/kubernetes-volume-6.png" width=650>
+
+- ### ClusterIP
+
+  <img src="screenshots/kubernetes-cluster-ip.png" width=700>
+
+  ```yaml
+  // server-cluster-ip-service.yaml, port is the port of this ClusterIP, targetPort is the port of each pod in the deployment
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: server-cluster-ip-service
+  spec:
+    type: ClusterIP
+    selector:
+      component: server
+    ports:
+      - port: 5000
+        targetPort: 5000
+  ```
+
+  - This ClusterIP connects to all the pods inside a deployment (not the Deployment object itself). The ClusterIP object links to the pods by the key-value label `component: server` that declare in the Deployment template
+
+    ```yaml
+    // part of server-deployment
+    template:
+      metadata:
+        labels:
+          component: server
+    ```
+
+  - The metadata name in the Config file of a ClusterIP object is like a internal URL that allows other object to connect to it
+
+    <img src="screenshots/kubernetes-cluster-ip-2.png" width=700>
+
+    ```yaml
+    // Template of worker-deployment.yaml
+    spec:
+      containers:
+        - name: worker
+          image: ngantxnguyen/multi-worker
+          env:
+            - name: REDIS_HOST
+              value: redis-cluster-ip-service
+            - name: REDIS_PORT
+              value: '6379'
+    ```
+
+- ### Ingress
+
+  <img src="screenshots/kubernetes-ingress-1.png" width=650>
+
+  <img src="screenshots/kubernetes-ingress-2.png" width=650>
+
+  Example of an Ingress Config file `ingress-service.yaml`
+
+  ```yaml
+  apiVersion: extensions/v1beta1
+  kind: Ingress
+  metadata:
+    name: ingress-service
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/rewrite-target: /$1
+  spec:
+    rules:
+      - http:
+          paths:
+            - path: /?(.*)
+              backend:
+                serviceName: client-cluster-ip-service
+                servicePort: 3000
+            - path: /api/?(.*)
+              backend:
+                serviceName: server-cluster-ip-service
+                servicePort: 5000
+  ```
+
 ## `Kubectl` CLI
 
 <img src="screenshots/kubernetes-16.png" width=500>
@@ -708,7 +823,7 @@ kubectl apply -f client-node-port.yaml
 kubectl apply -f client-pod.yaml
 ```
 
-In the browser, visit `localhost:31515`, we'll see the React app renders. (If use minikube, replace localhost with minikube ip address)
+In the browser, visit `localhost:31515`, we'll see the React app renders. (If use minikube, replace localhost with the Virtual Machine IP address that minikube created)
 
 <img src="screenshots/kubernetes-17.png" width=450>
 
@@ -725,7 +840,9 @@ kubectl get services
 
 <img src="screenshots/kubernetes-37.png" width=1000>
 
-> kubectl set image deployment/client-deployment client=stephengrider/multi-client:v5
+`kubectl set image deployment/client-deployment client=stephengrider/multi-client:v5`
+
+<img src="screenshots/kubernetes-create-secret.png" width=1000>
 
 ## Important takeaways
 
@@ -766,3 +883,152 @@ An alternative to access to containers in a Kubernetes cluster is to access to m
   <img src="screenshots/kubernetes-39.png" width=400>
 
   <img src="screenshots/kubernetes-40.png" width=550>
+
+## Project `7-complex` (Use Ingress, ClusterIP, Persistent Volume, Deployment and Deploy to Google Cloud)
+
+- ### Structure
+
+  <img src="screenshots/kubernetes-7-complex-1.png" width=1000>
+
+  - Create Persistent Volume Claim Config to use with Postgres
+
+    <img src="screenshots/kubernetes-7-complex-2.png" width=550>
+
+  - We need to make sure to provide Environment variables to templates that use server and worker images.
+
+    The database password has to be stored and retrieve differently because it contains sensitive information. Create a Secret Object to store Postgres Database password `kubectl create secret generic pgpassword --from-literal PGPASSWORD=pass1234`
+
+    <img src="screenshots/kubernetes-7-complex-3.png" width=550>
+
+  - Create Ingress config (to direct traffic to the right services inside the cluster. In this app, if the url start with `/api` then it'll go to `server`, otherwise it'll go to `client`)
+    <img src="screenshots/kubernetes-7-complex-4.png" width=550>
+    <img src="screenshots/kubernetes-7-complex-5.png" width=550>
+
+- ### Local Development Setup
+
+  - Build and upload Docker Images
+
+    ```sh
+    docker build -t ngantxnguyen/multi-client -f ./client/Dockerfile ./client
+    docker build -t ngantxnguyen/multi-server -f ./server/Dockerfile ./server
+    docker build -t ngantxnguyen/multi-worker -f ./worker/Dockerfile ./worker
+
+    docker push ngantxnguyen/multi-client
+    docker push ngantxnguyen/multi-server
+    docker push ngantxnguyen/multi-worker
+    ```
+
+  - Start a Kubernetes engine `minikube start`
+
+  - Setup and use Ingress-Nginx locally with Minikube
+
+    ```sh
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-0.32.0/deploy/static/provider/cloud/deploy.yaml
+
+    minikube addons enable ingress
+    ```
+
+  - Make sure to already set database password as a Secret Obj
+  - Create Objects based on the config files in folder k8s `kubectl apply -f k8s`
+
+* ### Travis Build and Google Cloud Deploy
+
+  <img src="screenshots/kubernetes-7-complex-6.png" width=550>
+  <img src="screenshots/kubernetes-7-complex-7.png" width=650>
+  <img src="screenshots/kubernetes-7-complex-8.png" width=450>
+
+  - Create a GitHub repo for the project
+  - Link the GitHub repo to Travis
+  - Create a Kubernetes engine on Google Cloud Platform
+  - Create a cluster in the newly created Kubernetes Engine
+  - Generate a Service Account on GCP (IAM) for this project and set a role for the account. When done, download the credential in a json file
+  - Use Travis CLI to encrypt the json service account file before uploading to GitHub so it doesn't expose sensitive information to the public
+
+    After the encryption is done, remember to copy the `openssl` command line created by Travis CLI to the `.travis.yml` file. This is how Travis will be able to decrypt the credential to use to log in to GCP when we use Travis to deploy to GCP
+
+    <img src="screenshots/kubernetes-7-complex-9.png" width=700>
+
+  - Go to `travis-ci.org` => select this GitHub project => More setting => scroll to Environment Variable => Enter credential used to log in into docker DOCKER_USERNAME and DOCKER_PASSWORD. We need `Docker` because Travis use Docker to build Docker Images, run tests and pushes images to the docker hub account
+
+    We'll create 2 tags for the images, one with the `latest` tag and one with the Git commit ID (GIT SHA). The `latest` tag is to make it easy for a new developer to always pull the latest built image. The `GIT SHA` tag is for Kubernetes to see the content of the Image has changed for it to update the containers.
+
+    <img src="screenshots/kubernetes-7-complex-10.png" width=500>
+    <img src="screenshots/kubernetes-7-complex-11.png" width=450>
+
+  - Open GCloud online terminal on Google Cloud Console and Run those commands
+  - Configure the GCloud CLI on Google Cloud Console.
+
+    ```
+    gcloud config set project GOOGLE_KUBERNETES_PROJECT_ID
+    gcloud config set compute/zone GOOGLE_KUBERNETES_PROJECT_ZONE
+    gcloud container clusters get-credentials GOOGLE_KUBERNETES_PROJECT_NAME
+    ```
+
+  - GCloud CLI: Use `Helm` v3 to install `Ingress-Nginx` (Check the installation guide on Ingress-Nginx docs):
+
+    ```
+    curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 > get_helm.sh
+    chmod 700 get_helm.sh
+    ./get_helm.sh
+    ```
+
+  - GCloud CLI: Install `Ingress-Nginx` to Kubernetes Engine project on Google Cloud
+
+    ```
+    helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+    helm install my-nginx stable/nginx-ingress --set rbac.create=true
+    ```
+
+  - GCloud CLI: Create a Secret Object to store Postgres Database password `kubectl create secret generic pgpassword --from-literal PGPASSWORD=pass1234`
+
+  - Complete Travis Config file for testing, building images and initiate deployment. Google Cloud Deployment Script file `deploy.sh`
+
+    ```yml
+    sudo: required
+    services:
+      - docker
+    env:
+      global:
+        - SHA=$(git rev-parse HEAD)
+        - CLOUDSDK_CORE_DISABLE_PROMPTS=1
+    before_install:
+      - openssl aes-256-cbc -K $encrypted_9f3b5599b056_key -iv $encrypted_9f3b5599b056_iv -in service-account.json.enc -out service-account.json -d
+      - curl https://sdk.cloud.google.com | bash > /dev/null;
+      - source $HOME/google-cloud-sdk/path.bash.inc
+      - gcloud components update kubectl
+      - gcloud auth activate-service-account --key-file service-account.json
+      - gcloud config set project multi-cluster-278622
+      - gcloud config set compute/zone us-central1-c
+      - gcloud container clusters get-credentials multi-cluster
+      - echo "$DOCKER_PASSWORD" | docker login -u $"$DOCKER_USERNAME" --password-stdin
+      - docker build -t ngantxnguyen/react-test -f ./client/Dockerfile.dev ./client
+
+    script:
+      - docker run -e CI=true ngantxnguyen/react-test npm run test
+
+    deploy:
+      provider: script
+      script: bash ./deploy.sh
+      on:
+        branch: master
+    ```
+
+    ```sh
+    docker build -t ngantxnguyen/multi-client:latest -t ngantxnguyen/multi-client:$SHA -f ./client/Dockerfile ./client
+    docker build -t ngantxnguyen/multi-server:latest -t ngantxnguyen/multi-server:$SHA -f ./server/Dockerfile ./server
+    docker build -t ngantxnguyen/multi-worker:latest -t ngantxnguyen/multi-worker:$SHA -f ./worker/Dockerfile ./worker
+
+    docker push ngantxnguyen/multi-client:latest
+    docker push ngantxnguyen/multi-server:latest
+    docker push ngantxnguyen/multi-worker:latest
+    docker push ngantxnguyen/multi-client:$SHA
+    docker push ngantxnguyen/multi-server:$SHA
+    docker push ngantxnguyen/multi-worker:$SHA
+
+    kubectl apply -f k8s
+    kubectl set image deployments/server-deployment server=ngantxnguyen/multi-server:$SHA
+    kubectl set image deployments/client-deployment client=ngantxnguyen/multi-client:$SHA
+    kubectl set image deployments/worker-deployment worker=ngantxnguyen/multi-worker:$SHA
+    ```
+
+  - Commit and push the project with `.travis.yml`, `deploy.sh`, and `service-account.json.enc` to GitHub master branch. Travis will kick in to test, build and deploy.
