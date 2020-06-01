@@ -21,6 +21,13 @@
   - [Docker Compose vs Kubernetes](#docker-compose-vs-kubernetes)
   - [Kubernetes Config files](#kubernetes-config-files)
   - [Object Types](#object-types)
+    - [Pod](#pods)
+    - [Services](#services)
+      - [NodePort](#nodeport)
+      - [ClusterIP](#clusterip)
+      - [Ingress](#ingress)
+    - [Deployment](#deployment)
+    - [Kbernetes Volume](#kubernetes-volume)
   - [Kubectl CLI](#kubectl-cli)
   - [Important takeaways](#important-takeaways)
   - [Imperative Deployment vs Declarative Deployment](#imperative-deployment-vs-declarative-deployment)
@@ -28,6 +35,7 @@
   - [Update the Node with a new version of the container's image](#update-the-node-with-a-new-version-of-the-containers-image)
   - [Accessing the Node's containers](#accessing-the-nodes-containers)
   - [Project 7-complex (Use Ingress, ClusterIP, Persistent Volume, Deployment and Deploy to Google Cloud)](#project-7-complex-use-ingress-clusterip-persistent-volume-deployment-and-deploy-to-google-cloud)
+  - [Skaffold](#skaffold)
 
 # DOCKER
 
