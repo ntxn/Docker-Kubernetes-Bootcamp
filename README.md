@@ -28,7 +28,6 @@
   - [Update the Node with a new version of the container's image](#update-the-node-with-a-new-version-of-the-containers-image)
   - [Accessing the Node's containers](#accessing-the-nodes-containers)
   - [Project 7-complex (Use Ingress, ClusterIP, Persistent Volume, Deployment and Deploy to Google Cloud)](#project-7-complex-use-ingress-clusterip-persistent-volume-deployment-and-deploy-to-google-cloud)
-  - [](#)
 
 # DOCKER
 
@@ -625,9 +624,15 @@ Either in development or production, we always use `kubectl` to manage container
 
 <img src="screenshots/kubernetes-7.png" width=1000>
 
+<img src="screenshots/docker-vs-k8s.png" width=1000>
+
 ## Kubernetes Config files
 
 <img src="screenshots/kubernetes-9.png" width=700>
+
+**Example of content of config file**
+
+<img src="screenshots/kubernetes-config-file.png" width=800>
 
 <img src="screenshots/kubernetes-10.png" width=700>
 
@@ -694,6 +699,115 @@ The programs in `Master` looks at Config files for each object to fullfil its re
     <img src="screenshots/kubernetes-14.png" width=700>
 
     <img src="screenshots/kubernetes-15.png" width=600>
+
+    <img src="screenshots/kubernetes-cluster-ip-3.png" width=900>
+
+  - #### ClusterIP
+
+    <img src="screenshots/kubernetes-cluster-ip.png" width=700>
+
+    ```yaml
+    // server-cluster-ip-service.yaml, port is the port of this ClusterIP, targetPort is the port of each pod in the deployment
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: server-cluster-ip-service
+    spec:
+      type: ClusterIP
+      selector:
+        component: server
+      ports:
+        - port: 5000
+          targetPort: 5000
+    ```
+
+    - This ClusterIP connects to all the pods inside a deployment (not the Deployment object itself). The ClusterIP object links to the pods by the key-value label `component: server` that declare in the Deployment template
+
+      ```yaml
+      // part of server-deployment
+      template:
+        metadata:
+          labels:
+            component: server
+      ```
+
+    - The metadata name in the Config file of a ClusterIP object is like a internal URL that allows other object to connect to it
+
+      <img src="screenshots/kubernetes-cluster-ip-2.png" width=700>
+
+      ```yaml
+      // Template of worker-deployment.yaml
+      spec:
+        containers:
+          - name: worker
+            image: ngantxnguyen/multi-worker
+            env:
+              - name: REDIS_HOST
+                value: redis-cluster-ip-service
+              - name: REDIS_PORT
+                value: '6379'
+      ```
+
+  - #### Ingress
+
+    <img src="screenshots/kubernetes-ingress-1.png" width=650>
+
+    <img src="screenshots/kubernetes-ingress-2.png" width=650>
+
+    <img src="screenshots/kubernetes-ingress-3.png" width=500>
+
+    <img src="screenshots/kubernetes-ingress-4.png" width=650>
+
+    - Example of an Ingress Config file `ingress-service.yaml`
+
+      ```yaml
+      apiVersion: extensions/v1beta1
+      kind: Ingress
+      metadata:
+        name: ingress-service
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          nginx.ingress.kubernetes.io/rewrite-target: /$1
+      spec:
+        rules:
+          - http:
+              paths:
+                - path: /?(.*)
+                  backend:
+                    serviceName: client-cluster-ip-service
+                    servicePort: 3000
+                - path: /api/?(.*)
+                  backend:
+                    serviceName: server-cluster-ip-service
+                    servicePort: 5000
+      ```
+
+    - Another ingress yaml config file
+
+      ```yaml
+      apiVersion: networking.k8s.io/v1beta1
+      kind: Ingress
+      metadata:
+        name: ingress-srv
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          nginx.ingress.kubernetes.io/use-regex: 'true'
+      spec:
+        rules:
+          - host: posts.com
+            http:
+              paths:
+                - path: /posts
+                  backend:
+                    serviceName: query-srv
+                    servicePort: 4002
+                - path: /posts/create
+                  backend:
+                    serviceName: posts-clusterip-srv
+                    servicePort: 4000
+      ```
+
+      `host: posts.com`: We can define a domain name (can be the real domain name of the website) to determine which domain will have the following routing rules. We can have multiple hosts with different domain names in an ingress config. During development, we might want to access that domain but with the current files in development, we can tell our computer to access `127.0.0.1` (or another ip address where the app is host locally) whenever we want to go to that `posts.com`. To do that, in terminal run `code /etc/hosts`, then add `127.0.0.1 posts.com` at the end and sudo save the file. Now whenever we want to access `posts.com`, we'll be redirect to `127.0.0.1` or any ip address we enter.
 
 - ### Deployment
 
@@ -768,82 +882,6 @@ The programs in `Master` looks at Config files for each object to fullfil its re
   <img src="screenshots/kubernetes-volume-5.png" width=650>
   <img src="screenshots/kubernetes-volume-6.png" width=650>
 
-- ### ClusterIP
-
-  <img src="screenshots/kubernetes-cluster-ip.png" width=700>
-
-  ```yaml
-  // server-cluster-ip-service.yaml, port is the port of this ClusterIP, targetPort is the port of each pod in the deployment
-  apiVersion: v1
-  kind: Service
-  metadata:
-    name: server-cluster-ip-service
-  spec:
-    type: ClusterIP
-    selector:
-      component: server
-    ports:
-      - port: 5000
-        targetPort: 5000
-  ```
-
-  - This ClusterIP connects to all the pods inside a deployment (not the Deployment object itself). The ClusterIP object links to the pods by the key-value label `component: server` that declare in the Deployment template
-
-    ```yaml
-    // part of server-deployment
-    template:
-      metadata:
-        labels:
-          component: server
-    ```
-
-  - The metadata name in the Config file of a ClusterIP object is like a internal URL that allows other object to connect to it
-
-    <img src="screenshots/kubernetes-cluster-ip-2.png" width=700>
-
-    ```yaml
-    // Template of worker-deployment.yaml
-    spec:
-      containers:
-        - name: worker
-          image: ngantxnguyen/multi-worker
-          env:
-            - name: REDIS_HOST
-              value: redis-cluster-ip-service
-            - name: REDIS_PORT
-              value: '6379'
-    ```
-
-- ### Ingress
-
-  <img src="screenshots/kubernetes-ingress-1.png" width=650>
-
-  <img src="screenshots/kubernetes-ingress-2.png" width=650>
-
-  Example of an Ingress Config file `ingress-service.yaml`
-
-  ```yaml
-  apiVersion: extensions/v1beta1
-  kind: Ingress
-  metadata:
-    name: ingress-service
-    annotations:
-      kubernetes.io/ingress.class: nginx
-      nginx.ingress.kubernetes.io/rewrite-target: /$1
-  spec:
-    rules:
-      - http:
-          paths:
-            - path: /?(.*)
-              backend:
-                serviceName: client-cluster-ip-service
-                servicePort: 3000
-            - path: /api/?(.*)
-              backend:
-                serviceName: server-cluster-ip-service
-                servicePort: 5000
-  ```
-
 ## `Kubectl` CLI
 
 <img src="screenshots/kubernetes-16.png" width=500>
@@ -903,11 +941,17 @@ kubectl get services
 
 ## Update the Node with a new version of the container's image
 
+- ### Method 1: use GIT SHA as image version tag, and `kubectl set` to force k8s to update the deployment with new image built
+
   <img src="screenshots/kubernetes-35.png" width=800>
 
   <img src="screenshots/kubernetes-36.png" width=500>
 
-`kubectl set image deployment/client-deployment client=stephengrider/multi-client:v5`
+  `kubectl set image deployment/client-deployment client=stephengrider/multi-client:v5`
+
+- ### Method 2: Better way to update the deployment with container's new version
+
+  <img src="screenshots/k8s-update-image-used-by-deployment.png" width=600>
 
 ## Accessing the Node's containers
 
@@ -1068,3 +1112,59 @@ An alternative to access to containers in a Kubernetes cluster is to access to m
     ```
 
   - Commit and push the project with `.travis.yml`, `deploy.sh`, and `service-account.json.enc` to GitHub master branch. Travis will kick in to test, build and deploy.
+
+## Skaffold
+
+**Use Skaffold with Kubernetes during development to make the container content changes be updated automatically without having to manually rebuild Docker images**
+
+- ### Why use Skaffold?
+
+  - Automates many tasks in a Kubernetes dev environment
+  - Makes it really easy to update code in a **running** pod
+  - Makes it really easy to create/delete all objects tied to a project at once
+
+- ### Install Skaffold
+
+  `brew install skaffold`: run this command in terminal (MacOS)
+
+- ### Write a config file for Skaffold
+
+  Example: `skaffold.yaml`
+
+  ```yaml
+  apiVersion: skaffold/v2alpha3
+  kind: Config
+  deploy:
+    kubectl:
+      manifests:
+        - ./k8s/*
+  build:
+    local:
+      push: false
+    artifacts:
+      - image: ngantxnguyen/client
+        context: client
+        docker:
+          dockerfile: Dockerfile
+        sync:
+          manual:
+            - src: 'src/**/*.js'
+              dest: .
+      - image: ngantxnguyen/comments
+        context: comments
+        docker:
+          dockerfile: Dockerfile
+        sync:
+          manual:
+            - src: '*.js'
+              dest: .
+  ```
+
+- ### Run Skaffold
+
+  In Terminal => project current directory, run `skaffold dev`, it'll run the `skaffold.yaml` file and process what we write in that config file.
+
+- ### Note
+
+  - Skaffold has 2 ways of updating a development. By default, it always rebuild the image and run the container with the new image when we make changes to the image source code. The second way overrides the default behavior, i.e instead of building a new image, it copies the changes to the files inside the running container. To make Skafford overrides the default setting, we need to tell skafford what to copy to the container in `sync` => `manual`. In the above config, we tell Skaffold to watch for JS files, if there are any changes, copy it to the build context.
+  - In the source code of each container, we need to make sure that the inner servers always watch for changes and restart automatically. For example, using `nodemon` with an Express server.
